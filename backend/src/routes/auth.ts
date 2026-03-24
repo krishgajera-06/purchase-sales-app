@@ -21,7 +21,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // Create new user
-    const newUser = new User({ username, passwordHash, role: role || 'viewer' });
+    const newUser = new User({ username, passwordHash, role: role || 'admin' });
     await newUser.save();
 
     res.status(201).json({ message: 'User created' });

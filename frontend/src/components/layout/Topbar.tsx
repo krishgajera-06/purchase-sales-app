@@ -8,8 +8,10 @@ const Topbar = () => {
 
   return (
     <header className="h-16 border-b border-border bg-card/50 glass flex items-center justify-between px-6 sticky top-0 z-20">
-      <div className="flex items-center md:hidden">
-        <span className="text-xl font-bold text-primary">SyncData</span>
+      <div className="flex items-center gap-2 md:hidden">
+        <span className="text-xl font-bold text-foreground">
+          Aura <span className="text-primary font-black">BRIGHTNESS</span>
+        </span>
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-4">

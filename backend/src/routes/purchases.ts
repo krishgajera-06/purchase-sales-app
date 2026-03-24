@@ -25,7 +25,17 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+// Batch create purchases
+router.post('/batch', verifyToken, async (req, res) => {
+  try {
+    const purchases = await Purchase.insertMany(req.body);
+    res.status(201).json(purchases);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const updatedPurchase = await Purchase.findByIdAndUpdate(
       req.params.id,

@@ -5,6 +5,7 @@ import Layout from './components/layout/Layout';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Items from './pages/Items';
 import Purchases from './pages/Purchases';
 import Sales from './pages/Sales';
 
@@ -18,6 +19,7 @@ const AppRoutes = () => {
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/items" element={<Items />} />
         <Route path="/purchases" element={<Purchases />} />
         <Route path="/sales" element={<Sales />} />
       </Route>

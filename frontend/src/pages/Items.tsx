@@ -8,69 +8,61 @@ import { motion } from 'framer-motion';
 import { Plus, Search, Trash2, Upload, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-const Purchases = () => {
+const Items = () => {
   const { token, user } = useAuth();
-  const [purchases, setPurchases] = useState<any[]>([]);
-  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   
-  // New purchase state
-  const [item, setItem] = useState('');
-  const [quantity, setQuantity] = useState('');
+  // New item state
+  const [name, setName] = useState('');
+  const [sku, setSku] = useState('');
+  const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [supplier, setSupplier] = useState('');
+  const [stockQuantity, setStockQuantity] = useState('');
 
-  const fetchPurchases = async () => {
-    try {
-      const res = await axios.get('/api' + '/purchases', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPurchases(res.data);
-    } catch (error) {
-      console.error('Failed to fetch purchases', error);
-    }
-  };
-
-  const fetchInventoryItems = async () => {
+  const fetchItems = async () => {
     try {
       const res = await axios.get('/api' + '/items', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setInventoryItems(res.data);
+      setItems(res.data);
     } catch (error) {
-      console.error('Failed to fetch inventory items', error);
+      console.error('Failed to fetch items', error);
     }
   };
 
   useEffect(() => {
-    fetchPurchases();
-    fetchInventoryItems();
+    fetchItems();
   }, [token]);
 
-  const handleAddPurchase = async (e: React.FormEvent) => {
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (user?.role !== 'admin') return alert('Access denied');
-      await axios.post('/api' + '/purchases', {
-        item, quantity: Number(quantity), price: Number(price), supplier
+      await axios.post('/api' + '/items', {
+        name, 
+        sku, 
+        description, 
+        price: Number(price), 
+        stockQuantity: Number(stockQuantity) || 0
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setItem(''); setQuantity(''); setPrice(''); setSupplier('');
-      fetchPurchases();
+      setName(''); setSku(''); setDescription(''); setPrice(''); setStockQuantity('');
+      fetchItems();
     } catch (error) {
-      console.error('Failed to add purchase', error);
+      console.error('Failed to add item', error);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       if (user?.role !== 'admin') return alert('Access denied');
-      await axios.delete(`/api/purchases/${id}`, {
+      await axios.delete('/api' + `/items/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchPurchases();
+      fetchItems();
     } catch (error) {
       console.error('Failed to delete', error);
     }
@@ -93,31 +85,35 @@ const Purchases = () => {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       const formattedData = jsonData.map((row: any) => ({
-        item: row.item || row.Item || '',
-        quantity: Number(row.quantity || row.Quantity || row.qty || 1),
+        name: row.name || row.Name || row.item || '',
+        sku: row.sku || row.SKU || `ITM-${Math.floor(Math.random() * 10000)}`,
+        description: row.description || row.Description || '',
         price: Number(row.price || row.Price || 0),
-        supplier: row.supplier || row.Supplier || 'Imported'
-      })).filter(p => p.item && p.quantity && p.price);
+        stockQuantity: Number(row.stockQuantity || row.qty || row.Quantity || 0)
+      })).filter(i => i.name && i.sku);
 
       if (formattedData.length > 0) {
-        await axios.post('/api' + '/purchases/batch', formattedData, {
+        await axios.post('/api' + '/items/batch', formattedData, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        fetchPurchases();
-        alert(`Successfully imported ${formattedData.length} purchases!`);
+        fetchItems();
+        alert(`Successfully imported ${formattedData.length} items!`);
       } else {
         alert("No valid data found in the spreadsheet.");
       }
     } catch (error) {
       console.error('Error importing file', error);
-      alert('Failed to import file. Check console for details.');
+      alert('Failed to import file. Check console (and note that SKU values must be unique).');
     } finally {
       setIsImporting(false);
       e.target.value = '';
     }
   };
 
-  const filteredPurchases = purchases.filter(p => p.item.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredItems = items.filter(i => 
+    i.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    i.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -127,7 +123,7 @@ const Purchases = () => {
           animate={{ opacity: 1, x: 0 }}
           className="text-4xl font-bold tracking-tight"
         >
-          Purchases
+          Items Master
         </motion.h1>
         {user?.role === 'admin' && (
           <label className={`cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
@@ -144,7 +140,7 @@ const Purchases = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 text-muted-foreground w-4 h-4" />
               <Input 
-                placeholder="Search items..." 
+                placeholder="Search items by name or SKU..." 
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -158,47 +154,49 @@ const Purchases = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Inventory List</CardTitle>
+              <CardTitle>Item Inventory</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-muted-foreground uppercase bg-muted/50 rounded-lg">
                     <tr>
-                      <th className="px-6 py-4 rounded-tl-lg rounded-bl-lg">Item</th>
-                      <th className="px-6 py-4">Supplier</th>
-                      <th className="px-6 py-4">Quantity</th>
+                      <th className="px-6 py-4 rounded-tl-lg">SKU</th>
+                      <th className="px-6 py-4">Name</th>
+                      <th className="px-6 py-4">Stock Qty</th>
                       <th className="px-6 py-4">Price</th>
-                      <th className="px-6 py-4">Date</th>
-                      {user?.role === 'admin' && <th className="px-6 py-4 rounded-tr-lg rounded-br-lg text-right">Actions</th>}
+                      {user?.role === 'admin' && <th className="px-6 py-4 rounded-tr-lg text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPurchases.map((purchase, index) => (
+                    {filteredItems.map((item, index) => (
                       <motion.tr 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        key={purchase._id} 
+                        key={item._id} 
                         className="border-b border-border hover:bg-muted/50 transition-colors"
                       >
-                        <td className="px-6 py-4 font-medium">{purchase.item}</td>
-                        <td className="px-6 py-4 text-muted-foreground">{purchase.supplier}</td>
-                        <td className="px-6 py-4">{purchase.quantity}</td>
-                        <td className="px-6 py-4 font-medium">${purchase.price}</td>
-                        <td className="px-6 py-4 text-muted-foreground">{new Date(purchase.date).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 font-medium text-muted-foreground">{item.sku}</td>
+                        <td className="px-6 py-4 font-bold">{item.name}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${item.stockQuantity <= 5 ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                            {item.stockQuantity}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-medium">${item.price}</td>
                         {user?.role === 'admin' && (
                           <td className="px-6 py-4 text-right">
-                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/20" onClick={() => handleDelete(purchase._id)}>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/20" onClick={() => handleDelete(item._id)}>
                               <Trash2 size={16} />
                             </Button>
                           </td>
                         )}
                       </motion.tr>
                     ))}
-                    {filteredPurchases.length === 0 && (
+                    {filteredItems.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-6 py-8 text-center text-muted-foreground">No purchases found.</td>
+                        <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">No items found.</td>
                       </tr>
                     )}
                   </tbody>
@@ -212,46 +210,35 @@ const Purchases = () => {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
             <Card className="sticky top-[88px]">
               <CardHeader>
-                <CardTitle>Add New Purchase</CardTitle>
+                <CardTitle>Add New Item</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleAddPurchase} className="space-y-4">
+                <form onSubmit={handleAddItem} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Item Name</label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={item} 
-                      onChange={e => {
-                        setItem(e.target.value);
-                        // Auto-fill price if possible
-                        const selected = inventoryItems.find(i => i.name === e.target.value);
-                        if (selected && !price) setPrice(selected.price);
-                      }} 
-                      required
-                    >
-                      <option value="" disabled>Select an item</option>
-                      {inventoryItems.map(invItem => (
-                        <option key={invItem._id} value={invItem.name}>{invItem.name} ({invItem.sku})</option>
-                      ))}
-                    </select>
+                    <label className="text-sm font-medium">SKU</label>
+                    <Input value={sku} onChange={e => setSku(e.target.value)} placeholder="e.g. ITM-001" required />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Supplier</label>
-                    <Input value={supplier} onChange={e => setSupplier(e.target.value)} required />
+                    <label className="text-sm font-medium">Item Name</label>
+                    <Input value={name} onChange={e => setName(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Description</label>
+                    <Input value={description} onChange={e => setDescription(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Quantity</label>
-                      <Input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} required />
+                      <label className="text-sm font-medium">Price</label>
+                      <Input type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Unit Price</label>
-                      <Input type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
+                      <label className="text-sm font-medium">Stock Qty</label>
+                      <Input type="number" min="0" value={stockQuantity} onChange={e => setStockQuantity(e.target.value)} required />
                     </div>
                   </div>
                   <Button type="submit" className="w-full mt-2">
                     <Plus size={16} className="mr-2" />
-                    Record Purchase
+                    Save Item
                   </Button>
                 </form>
               </CardContent>
@@ -263,4 +250,4 @@ const Purchases = () => {
   );
 };
 
-export default Purchases;
+export default Items;

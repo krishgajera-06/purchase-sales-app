@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, ShoppingCart, DollarSign, LayoutDashboard } from 'lucide-react';
+import { Home, ShoppingCart, DollarSign, LayoutDashboard, Package } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 
 const Sidebar = () => {
   const links = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Items', path: '/items', icon: Package },
     { name: 'Purchases', path: '/purchases', icon: ShoppingCart },
     { name: 'Sales', path: '/sales', icon: DollarSign },
   ];
@@ -17,9 +18,10 @@ const Sidebar = () => {
       animate={{ x: 0 }} 
       className="w-64 bg-card border-r border-border glass hidden md:flex flex-col h-full z-20"
     >
-      <div className="p-6">
-        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-500">
-          SyncData
+      <div className="p-6 flex items-center justify-center">
+        <h2 className="text-2xl font-bold text-foreground leading-tight text-center">
+          Aura<br/>
+          <span className="text-sm font-black text-primary tracking-widest uppercase">Brightness</span>
         </h2>
       </div>
       <nav className="flex-1 px-4 space-y-2">

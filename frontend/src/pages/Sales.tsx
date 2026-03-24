@@ -5,12 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { motion } from 'framer-motion';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2, Upload, Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const Sales = () => {
   const { token, user } = useAuth();
   const [sales, setSales] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
   
   // New sale state
   const [item, setItem] = useState('');
@@ -20,7 +23,7 @@ const Sales = () => {
 
   const fetchSales = async () => {
     try {
-      const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/sales', {
+      const res = await axios.get('/api' + '/sales', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSales(res.data);
@@ -29,15 +32,27 @@ const Sales = () => {
     }
   };
 
+  const fetchInventoryItems = async () => {
+    try {
+      const res = await axios.get('/api' + '/items', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setInventoryItems(res.data);
+    } catch (error) {
+      console.error('Failed to fetch inventory items', error);
+    }
+  };
+
   useEffect(() => {
     fetchSales();
+    fetchInventoryItems();
   }, [token]);
 
   const handleAddSale = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (user?.role !== 'admin') return alert('Access denied');
-      await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/sales', {
+      await axios.post('/api' + '/sales', {
         item, quantity: Number(quantity), price: Number(price), customer
       }, {
         headers: { Authorization: `Bearer ${token}` }
@@ -52,12 +67,53 @@ const Sales = () => {
   const handleDelete = async (id: string) => {
     try {
       if (user?.role !== 'admin') return alert('Access denied');
-      await axios.delete(`/sales/${id}`, {
+      await axios.delete(`/api/sales/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchSales();
     } catch (error) {
       console.error('Failed to delete', error);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      if (user?.role !== 'admin') {
+        alert('Access denied');
+        return;
+      }
+      
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      const formattedData = jsonData.map((row: any) => ({
+        item: row.item || row.Item || '',
+        quantity: Number(row.quantity || row.Quantity || row.qty || 1),
+        price: Number(row.price || row.Price || 0),
+        customer: row.customer || row.Customer || 'Imported'
+      })).filter(p => p.item && p.quantity && p.price);
+
+      if (formattedData.length > 0) {
+        await axios.post('/api' + '/sales/batch', formattedData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        fetchSales();
+        alert(`Successfully imported ${formattedData.length} sales!`);
+      } else {
+        alert("No valid data found in the spreadsheet.");
+      }
+    } catch (error) {
+      console.error('Error importing file', error);
+      alert('Failed to import file. Check console for details.');
+    } finally {
+      setIsImporting(false);
+      e.target.value = '';
     }
   };
 
@@ -73,6 +129,13 @@ const Sales = () => {
         >
           Sales
         </motion.h1>
+        {user?.role === 'admin' && (
+          <label className={`cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            Import Excel
+            <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" disabled={isImporting} />
+          </label>
+        )}
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -155,7 +218,22 @@ const Sales = () => {
                 <form onSubmit={handleAddSale} className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Item Name</label>
-                    <Input value={item} onChange={e => setItem(e.target.value)} required />
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={item} 
+                      onChange={e => {
+                        setItem(e.target.value);
+                        // Auto-fill price if possible
+                        const selected = inventoryItems.find(i => i.name === e.target.value);
+                        if (selected && !price) setPrice(selected.price);
+                      }} 
+                      required
+                    >
+                      <option value="" disabled>Select an item</option>
+                      {inventoryItems.map(invItem => (
+                        <option key={invItem._id} value={invItem.name}>{invItem.name} ({invItem.sku})</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Customer</label>
