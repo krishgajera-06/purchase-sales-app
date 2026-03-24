@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 export const AuraLogo = ({ className = "w-8 h-8" }: { className?: string }) => (
   <svg 

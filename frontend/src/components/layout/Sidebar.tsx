@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { NavLink } from 'react-router-dom';
 import { Home, ShoppingCart, DollarSign, LayoutDashboard, Package } from 'lucide-react';
 import { cn } from '../../lib/utils';
