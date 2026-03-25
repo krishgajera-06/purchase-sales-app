@@ -1,6 +1,6 @@
 import express from 'express';
-import Purchase from '../models/Purchase';
-import { verifyToken, requireAdmin } from '../middleware/auth';
+import Purchase from '../models/Purchase.js';
+import { verifyToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
